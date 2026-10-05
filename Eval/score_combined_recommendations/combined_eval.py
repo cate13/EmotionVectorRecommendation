@@ -7,7 +7,7 @@ from collections import defaultdict
 
 # --- Load filtered users ---
 filtered_user_ids = set()
-with open("Users_filtered.jsonl", "r", encoding="utf-8") as f:
+with open("Eval/score_combined_recommendations/Users_filtered.jsonl", "r", encoding="utf-8") as f:
     for line in f:
         if line.strip():
             user = json.loads(line)
@@ -45,7 +45,7 @@ def extract_titles(llm_output, candidate_titles=None):
     return titles
 
 
-def evaluate_record(candidate_books, llm_output, user_id, threshold=7):
+def evaluate_record(candidate_books, llm_output, user_id, threshold=8):
     """
     Returns NDCG@5, NDCG(all), Spearman, reciprocal rank
     threshold: rating threshold to consider "relevant" for MRR
@@ -55,11 +55,11 @@ def evaluate_record(candidate_books, llm_output, user_id, threshold=7):
         return None, None, None, None, None
 
     candidate_books = [
-        b for b in candidate_books if b.get("user_rating", 0) > 0
+        b for b in candidate_books if b.get("rating", 0) > 0
     ]
 
     candidate_titles = [b["title"] for b in candidate_books]
-    title_to_rating = {b["title"]: b.get("user_rating", 0) for b in candidate_books}
+    title_to_rating = {b["title"]: b.get("rating", 0) for b in candidate_books}
 
     # LLM predicted ranking
     pred_titles = extract_titles(llm_output, candidate_titles=candidate_titles)
@@ -94,13 +94,14 @@ def evaluate_record(candidate_books, llm_output, user_id, threshold=7):
 
     return ndcg_5, ndcg_10, ndcg_all, spearman_corr, rr
 
-with open("combined_ranking_all_users_results.json", "r", encoding="utf-8") as f:
+with open("Eval/score_llm_recommendations/llm_only_ranking_all_users_8_results.json", "r", encoding="utf-8") as f:
     records = json.load(f)
 
 per_model_metrics = defaultdict(lambda: {"ndcg": [], "ndcg_5": [], "ndcg_10": [], "rho": [], "rr": []})
 
 for record in records:
     user_id = record.get("user_id")
+
     if user_id not in filtered_user_ids:
         continue  # skip users not in the filtered list
     candidate_books = record.get("candidate_books", [])
@@ -114,7 +115,8 @@ for record in records:
     per_model_metrics[model]["rr"].append(rr)
 
 
-print("\n=== Metrics by Model ===")
+
+print("\n=== Metrics for Highly Rate = 8 ===")
 for model, metrics in per_model_metrics.items():
     ndcg_mean = np.mean(metrics["ndcg"])
     ndcg_5_mean = np.mean(metrics["ndcg_5"])
